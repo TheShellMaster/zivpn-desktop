@@ -19,11 +19,12 @@ type Connection struct {
 }
 
 // SalamanderPassword is the obfuscation password used by ZiVPN servers.
-// It mirrors the server-side `"obfs": "zivpn"` setting from
-// https://github.com/zahidbd2/udp-zivpn/blob/main/config.json : the ZiVPN
-// fork (v1.5.0, Hysteria v2 based) speaks the "Zivpnudp-*" framing with
-// salamander obfuscation keyed by this password.
-const SalamanderPassword = "zivpn"
+// Verified by decompiling the official Android client (com.zi.zivpn) :
+// G.java builds the client config with "obfs" = A2.d.k(C1.n.e), where
+// A2.d.k XOR-decodes with key "ZCQV", yielding exactly this string.
+// The official server binary enforces the same value ("wtf!!!No Idea"
+// otherwise). It is NOT the "zivpn" string from the server config file.
+const SalamanderPassword = "hu``hqb`c"
 
 type EngineConfig struct {
 	Server string        `json:"server"`

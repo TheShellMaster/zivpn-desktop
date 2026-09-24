@@ -42,7 +42,7 @@ L'inspection des symboles et des chaînes de caractères du binaire `/usr/local/
 ### 💡 Conclusion technique :
 **ZiVPN 1.5.0 est un fork d'Hysteria v2 (génération v2.2.x)**, où :
 - Le framing QUIC utilise les marqueurs `Zivpnudp-*` au lieu de `Hysteria-*` : un client Hysteria standard voit ses paquets **ignorés silencieusement** par le serveur.
-- L'obfuscation est `salamander` (BLAKE2b-256, sel 8 octets), pilotée par le réglage serveur `"obfs": "zivpn"` (mot de passe `zivpn`).
+- L'obfuscation est `salamander` (BLAKE2b-256, sel 8 octets), avec le mot de passe `hu``hqb`c` — extrait du client Android officiel (décompilé : `G.java` + XOR `A2.d.k` clé `ZCQV`), et confirmé par connexion réelle au serveur.
 - L'authentification est le mot de passe seul (champ `auth`), sans nom d'utilisateur.
 - Le port standard par défaut est `5667/udp`.
 
@@ -65,7 +65,7 @@ Pour qu'un client puisse négocier avec succès une session avec le serveur ZiVP
 │      Framing "Zivpnudp-*" (Auth / UDP / CC-RX / Padding)     │
 ├─────────────────────────────────────────────────────────────┤
 │                      Couche Obfuscation                     │
-│    Salamander (BLAKE2b-256, mot de passe : "zivpn")          │
+│    Salamander (BLAKE2b-256, mot de passe : "hu``hqb`c")       │
 └─────────────────────────────────────────────────────────────┘
 ```
 
