@@ -3,6 +3,7 @@ package ui
 import (
 	"context"
 	"fmt"
+	_ "embed"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -11,6 +12,7 @@ import (
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
+	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/theme"
@@ -19,6 +21,9 @@ import (
 	"github.com/TheShellMaster/zivpn-desktop/internal/config"
 	"github.com/TheShellMaster/zivpn-desktop/internal/engine"
 )
+
+//go:embed icon.png
+var appIconBytes []byte
 
 type AppUI struct {
 	app     fyne.App
@@ -41,8 +46,12 @@ type AppUI struct {
 
 func Run() {
 	a := app.NewWithID("com.zivpn.desktop")
+	iconRes := fyne.NewStaticResource("icon.png", appIconBytes)
+	a.SetIcon(iconRes)
+
 	w := a.NewWindow("ZiVPN Desktop")
-	w.Resize(fyne.NewSize(380, 520))
+	w.SetIcon(iconRes)
+	w.Resize(fyne.NewSize(380, 560))
 	w.SetFixedSize(false)
 
 	configDir, err := os.UserConfigDir()
@@ -71,9 +80,20 @@ func Run() {
 }
 
 func (u *AppUI) build() {
-	// En-tête
+	// Logo & En-tête
+	iconRes := fyne.NewStaticResource("icon.png", appIconBytes)
+	imgLogo := canvas.NewImageFromResource(iconRes)
+	imgLogo.SetMinSize(fyne.NewSize(72, 72))
+	imgLogo.FillMode = canvas.ImageFillContain
+
 	lblTitle := widget.NewLabelWithStyle("ZiVPN Desktop", fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
 	lblSub := widget.NewLabelWithStyle("Client VPN UDP", fyne.TextAlignCenter, fyne.TextStyle{Italic: true})
+
+	header := container.NewVBox(
+		container.NewCenter(imgLogo),
+		lblTitle,
+		lblSub,
+	)
 
 	// Formulaire
 	u.entryServer = widget.NewEntry()
@@ -123,8 +143,7 @@ func (u *AppUI) build() {
 	)
 
 	content := container.NewVBox(
-		lblTitle,
-		lblSub,
+		header,
 		widget.NewSeparator(),
 		form,
 		widget.NewSeparator(),

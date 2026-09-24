@@ -1,4 +1,4 @@
-name: Build and Release
+name: Build and Release Multiplatform
 
 on:
   push:
@@ -6,6 +6,10 @@ on:
     tags: [ "v*" ]
   pull_request:
     branches: [ "main" ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   build-linux:
@@ -27,11 +31,55 @@ jobs:
         run: |
           go build -v -o zivpn-desktop ./cmd/zivpn-desktop
 
-      - name: Upload Linux Artifact
+      - name: Download Linux Engine
+        run: |
+          curl -sL https://github.com/apernet/hysteria/releases/download/v1.3.5/hysteria-linux-amd64 -o zivpn-engine
+          chmod +x zivpn-desktop zivpn-engine
+
+      - name: Package Linux AppImage & Tarball
+        run: |
+          mkdir -p AppDir/usr/bin AppDir/usr/share/icons/hicolor/512x512/apps
+          cp zivpn-desktop AppDir/usr/bin/
+          cp zivpn-engine AppDir/usr/bin/
+          cp assets/icon.png AppDir/zivpn-desktop.png
+          cp assets/icon.png AppDir/usr/share/icons/hicolor/512x512/apps/zivpn-desktop.png
+          
+          cat << 'EOF' > AppDir/zivpn-desktop.desktop
+          [Desktop Entry]
+          Name=ZiVPN Desktop
+          Comment=Client VPN UDP pour ZiVPN
+          Exec=zivpn-desktop
+          Icon=zivpn-desktop
+          Terminal=false
+          Type=Application
+          Categories=Network;
+          Keywords=vpn;zivpn;udp;tunnel;
+          StartupWMClass=com.zivpn.desktop
+          EOF
+          
+          cat << 'EOF' > AppDir/AppRun
+          #!/bin/sh
+          SELF=$(readlink -f "$0")
+          HERE=${SELF%/*}
+          export PATH="${HERE}/usr/bin:${PATH}"
+          export LD_LIBRARY_PATH="${HERE}/usr/lib:${LD_LIBRARY_PATH}"
+          exec "${HERE}/usr/bin/zivpn-desktop" "$@"
+          EOF
+          chmod +x AppDir/AppRun
+          
+          curl -sL https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage -o appimagetool
+          chmod +x appimagetool
+          ARCH=x86_64 ./appimagetool --appimage-extract-and-run AppDir ZiVPN-Desktop-x86_64.AppImage
+          
+          tar -czvf zivpn-desktop-linux-amd64.tar.gz zivpn-desktop zivpn-engine install.sh uninstall.sh assets/icon.png README.md ARCHITECTURE.md
+
+      - name: Upload Linux Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: zivpn-desktop-linux
-          path: zivpn-desktop
+          path: |
+            ZiVPN-Desktop-x86_64.AppImage
+            zivpn-desktop-linux-amd64.tar.gz
 
   build-windows:
     runs-on: windows-latest
@@ -43,12 +91,150 @@ jobs:
         with:
           go-version: '1.23'
 
-      - name: Build Windows Binary
+      - name: Build Windows Binary (No Console Window)
         run: |
           go build -v -ldflags "-H windowsgui" -o zivpn-desktop.exe ./cmd/zivpn-desktop
 
-      - name: Upload Windows Artifact
+      - name: Download Windows Engine & Wintun Driver
+        shell: bash
+        run: |
+          curl -sL https://github.com/apernet/hysteria/releases/download/v1.3.5/hysteria-windows-amd64.exe -o zivpn-engine.exe
+          curl -sL https://www.wintun.net/builds/wintun-0.14.1.zip -o wintun.zip
+          unzip -p wintun.zip wintun/bin/amd64/wintun.dll > wintun.dll
+          rm -f wintun.zip
+
+      - name: Create Windows Setup Installer (NSIS)
+        shell: bash
+        run: |
+          cat << 'EOF' > installer.nsi
+          !include "MUI2.nsh"
+          Name "ZiVPN Desktop"
+          OutFile "ZiVPN-Desktop-Setup-x86_64.exe"
+          InstallDir "$PROGRAMFILES64\ZiVPN Desktop"
+          RequestExecutionLevel admin
+
+          !define MUI_ICON "assets\icon.ico"
+          !insertmacro MUI_PAGE_WELCOME
+          !insertmacro MUI_PAGE_DIRECTORY
+          !insertmacro MUI_PAGE_INSTFILES
+          !insertmacro MUI_PAGE_FINISH
+          !insertmacro MUI_LANGUAGE "French"
+
+          Section "Install"
+            SetOutPath "$INSTDIR"
+            File "zivpn-desktop.exe"
+            File "zivpn-engine.exe"
+            File "wintun.dll"
+            File "README.md"
+            File "ARCHITECTURE.md"
+            File "assets\icon.ico"
+
+            CreateDirectory "$SMPROGRAMS\ZiVPN Desktop"
+            CreateShortcut "$SMPROGRAMS\ZiVPN Desktop\ZiVPN Desktop.lnk" "$INSTDIR\zivpn-desktop.exe" "" "$INSTDIR\icon.ico"
+            CreateShortcut "$DESKTOP\ZiVPN Desktop.lnk" "$INSTDIR\zivpn-desktop.exe" "" "$INSTDIR\icon.ico"
+            
+            WriteUninstaller "$INSTDIR\uninstall.exe"
+            CreateShortcut "$SMPROGRAMS\ZiVPN Desktop\Désinstaller.lnk" "$INSTDIR\uninstall.exe"
+          SectionEnd
+
+          Section "Uninstall"
+            Delete "$DESKTOP\ZiVPN Desktop.lnk"
+            Delete "$SMPROGRAMS\ZiVPN Desktop\*.*"
+            RMDir "$SMPROGRAMS\ZiVPN Desktop"
+            Delete "$INSTDIR\*.*"
+            RMDir "$INSTDIR"
+          SectionEnd
+          EOF
+          makensis installer.nsi
+          zip -r zivpn-desktop-windows-amd64.zip zivpn-desktop.exe zivpn-engine.exe wintun.dll assets/icon.ico README.md ARCHITECTURE.md
+
+      - name: Upload Windows Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: zivpn-desktop-windows
-          path: zivpn-desktop.exe
+          path: |
+            ZiVPN-Desktop-Setup-x86_64.exe
+            zivpn-desktop-windows-amd64.zip
+
+  build-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+
+      - name: Build macOS Binary
+        run: |
+          go build -v -o zivpn-desktop ./cmd/zivpn-desktop
+
+      - name: Download macOS Engine
+        run: |
+          curl -sL https://github.com/apernet/hysteria/releases/download/v1.3.5/hysteria-darwin-universal -o zivpn-engine
+          chmod +x zivpn-desktop zivpn-engine
+
+      - name: Create macOS .app Bundle and DMG
+        run: |
+          mkdir -p "ZiVPN Desktop.app/Contents/MacOS"
+          mkdir -p "ZiVPN Desktop.app/Contents/Resources"
+          cp zivpn-desktop "ZiVPN Desktop.app/Contents/MacOS/"
+          cp zivpn-engine "ZiVPN Desktop.app/Contents/MacOS/"
+          cp assets/icon.png "ZiVPN Desktop.app/Contents/Resources/"
+          
+          cat << 'EOF' > "ZiVPN Desktop.app/Contents/Info.plist"
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>CFBundleExecutable</key>
+            <string>zivpn-desktop</string>
+            <key>CFBundleIdentifier</key>
+            <string>com.zivpn.desktop</string>
+            <key>CFBundleName</key>
+            <string>ZiVPN Desktop</string>
+            <key>CFBundlePackageType</key>
+            <string>APPL</string>
+            <key>CFBundleShortVersionString</key>
+            <string>1.0.0</string>
+            <key>NSHighResolutionCapable</key>
+            <true/>
+          </dict>
+          </plist>
+          EOF
+          
+          hdiutil create -volname "ZiVPN Desktop" -srcfolder "ZiVPN Desktop.app" -ov -format UDZO ZiVPN-Desktop-macOS.dmg
+          tar -czvf zivpn-desktop-macos.tar.gz "ZiVPN Desktop.app"
+
+      - name: Upload macOS Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: zivpn-desktop-macos
+          path: |
+            ZiVPN-Desktop-macOS.dmg
+            zivpn-desktop-macos.tar.gz
+
+  release:
+    needs: [build-linux, build-windows, build-macos]
+    if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v4
+
+      - name: Publish All Multiplatform Installers to GitHub Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG_NAME="${GITHUB_REF_NAME:-v1.0.0}"
+          gh release upload "$TAG_NAME" \
+            zivpn-desktop-linux/ZiVPN-Desktop-x86_64.AppImage \
+            zivpn-desktop-linux/zivpn-desktop-linux-amd64.tar.gz \
+            zivpn-desktop-windows/ZiVPN-Desktop-Setup-x86_64.exe \
+            zivpn-desktop-windows/zivpn-desktop-windows-amd64.zip \
+            zivpn-desktop-macos/ZiVPN-Desktop-macOS.dmg \
+            zivpn-desktop-macos/zivpn-desktop-macos.tar.gz \
+            --clobber || true
