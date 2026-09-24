@@ -103,6 +103,9 @@ jobs:
           unzip -p wintun.zip wintun/bin/amd64/wintun.dll > wintun.dll
           rm -f wintun.zip
 
+      - name: Install NSIS Installer Generator
+        run: choco install nsis
+
       - name: Create Windows Setup Installer (NSIS)
         shell: bash
         run: |
@@ -145,7 +148,7 @@ jobs:
             RMDir "$INSTDIR"
           SectionEnd
           EOF
-          makensis installer.nsi
+          "/c/Program Files (x86)/NSIS/makensis.exe" installer.nsi || makensis installer.nsi
           zip -r zivpn-desktop-windows-amd64.zip zivpn-desktop.exe zivpn-engine.exe wintun.dll assets/icon.ico README.md ARCHITECTURE.md
 
       - name: Upload Windows Artifacts
