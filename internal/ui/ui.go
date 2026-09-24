@@ -220,35 +220,39 @@ func (u *AppUI) connectLocked() {
 	u.logView.SetText("")
 	u.appendLog(fmt.Sprintf("Initialisation du tunnel vers %s:%d...\n", server, port))
 
+	// Lance le moteur dans un goroutine pour ne pas bloquer l'interface
+	// (pkexec/osascript peuvent prendre quelques secondes le temps que l'utilisateur
+	//  entre son mot de passe — l'UI reste fluide pendant ce temps).
 	ctx := context.Background()
-	proc, err := engine.Start(ctx, "", configPath, func(line string) {
-		u.appendLog(line + "\n")
-		if strings.Contains(line, "TUN up and running") || strings.Contains(line, "SOCKS5 server up and running") {
-			u.setStatus("connected", fmt.Sprintf("🟢 Connecté à %s:%d", server, port))
-		}
-	}, func(exitErr error) {
+	go func() {
+		proc, err := engine.Start(ctx, "", configPath, func(line string) {
+			u.appendLog(line + "\n")
+			if strings.Contains(line, "TUN up and running") || strings.Contains(line, "SOCKS5 server up and running") || strings.Contains(line, "Connected") {
+				u.setStatus("connected", fmt.Sprintf("🟢 Connecté à %s:%d", server, port))
+			}
+		}, func(exitErr error) {
+			u.mu.Lock()
+			defer u.mu.Unlock()
+			if u.status == "connected" || u.status == "connecting" {
+				if exitErr != nil {
+					u.setStatus("error", "🔴 Connexion interrompue")
+					u.appendLog(fmt.Sprintf("Arrêt du moteur: %v\n", exitErr))
+				} else {
+					u.setStatus("disconnected", "⚪ Déconnecté")
+				}
+				u.proc = nil
+			}
+		})
+
 		u.mu.Lock()
 		defer u.mu.Unlock()
-		if u.status == "connected" || u.status == "connecting" {
-			if exitErr != nil {
-				u.setStatus("error", "🔴 Connexion interrompue")
-				u.appendLog(fmt.Sprintf("Arrêt du moteur: %v\n", exitErr))
-			} else {
-				u.setStatus("disconnected", "⚪ Déconnecté")
-			}
-			u.proc = nil
+		if err != nil {
+			u.setStatus("error", "🔴 Échec du démarrage")
+			u.appendLog(fmt.Sprintf("Erreur moteur: %v\n", err))
+			return
 		}
-	})
-
-	if err != nil {
-		u.setStatus("error", "🔴 Échec du démarrage")
-		dialog.ShowError(fmt.Errorf("impossible de démarrer le moteur réseau: %w", err), u.window)
-		return
-	}
-
-	u.proc = proc
-	// Par défaut, si le moteur tourne sans erreur immédiate, on marque comme connecté
-	u.setStatus("connected", fmt.Sprintf("🟢 Connecté à %s:%d", server, port))
+		u.proc = proc
+	}()
 }
 
 func (u *AppUI) disconnect() {

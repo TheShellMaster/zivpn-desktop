@@ -64,18 +64,12 @@ func Start(ctx context.Context, binary, configPath string, onLog func(string), o
 	// • Linux  → pkexec (PolicyKit) : fenêtre "Authentification requise"
 	// • macOS  → osascript          : fenêtre "Entrez votre mot de passe"
 	// • Windows → manifest UAC      : fenêtre "Voulez-vous autoriser…" (au lancement)
+	// Lancement direct du moteur réseau (sans pkexec qui bloque en arrière-plan)
+	// Sur Windows, le manifest UAC élève toute l'application au démarrage.
+	// Sur macOS, osascript est utilisé si nécessaire.
 	var cmd *exec.Cmd
 	switch {
-	case runtime.GOOS == "linux" && os.Geteuid() != 0:
-		if pkexec, err := exec.LookPath("pkexec"); err == nil {
-			cmd = exec.CommandContext(ctx, pkexec, binary, "--no-check", "-c", configPath)
-		} else if sudoPath, err := exec.LookPath("sudo"); err == nil {
-			cmd = exec.CommandContext(ctx, sudoPath, "-n", binary, "--no-check", "-c", configPath)
-		} else {
-			cmd = exec.CommandContext(ctx, binary, "--no-check", "-c", configPath)
-		}
 	case runtime.GOOS == "darwin" && os.Geteuid() != 0:
-		// osascript demande le mot de passe via une fenêtre macOS native.
 		script := fmt.Sprintf(
 			`do shell script "%s --no-check -c %s" with administrator privileges`,
 			binary, configPath,
