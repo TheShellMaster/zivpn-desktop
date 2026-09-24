@@ -1,0 +1,54 @@
+name: Build and Release
+
+on:
+  push:
+    branches: [ "main" ]
+    tags: [ "v*" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+
+      - name: Install Linux GUI Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgl1-mesa-dev xorg-dev libxxf86vm-dev
+
+      - name: Build Linux Binary
+        run: |
+          go build -v -o zivpn-desktop ./cmd/zivpn-desktop
+
+      - name: Upload Linux Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: zivpn-desktop-linux
+          path: zivpn-desktop
+
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+
+      - name: Build Windows Binary
+        run: |
+          go build -v -ldflags "-H windowsgui" -o zivpn-desktop.exe ./cmd/zivpn-desktop
+
+      - name: Upload Windows Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: zivpn-desktop-windows
+          path: zivpn-desktop.exe

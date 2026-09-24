@@ -1,0 +1,15 @@
+# Binaires compilés et téléchargés (à la racine)
+/zivpn-desktop
+/zivpn-desktop.exe
+/zivpn-engine*
+/wintun.dll
+/lib/
+/dist/
+
+# Fichiers de configuration locaux
+client.json
+profile.json
+
+# Journaux de session locaux et fichiers temporaires
+codex-session-*.md
+*.log
