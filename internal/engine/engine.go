@@ -59,7 +59,21 @@ func Start(ctx context.Context, binary, configPath string, onLog func(string), o
 	}
 
 	ctx, cancel := context.WithCancel(ctx)
-	cmd := exec.CommandContext(ctx, binary, "--no-check", "-c", configPath)
+
+	// Sur Linux, le mode TUN requiert CAP_NET_ADMIN.
+	// pkexec affiche une boîte de dialogue graphique native (comme VirtualBox, Wireshark).
+	var cmd *exec.Cmd
+	if runtime.GOOS == "linux" && os.Geteuid() != 0 {
+		if pkexec, err := exec.LookPath("pkexec"); err == nil {
+			cmd = exec.CommandContext(ctx, pkexec, binary, "--no-check", "-c", configPath)
+		} else if sudoPath, err := exec.LookPath("sudo"); err == nil {
+			cmd = exec.CommandContext(ctx, sudoPath, "-n", binary, "--no-check", "-c", configPath)
+		} else {
+			cmd = exec.CommandContext(ctx, binary, "--no-check", "-c", configPath)
+		}
+	} else {
+		cmd = exec.CommandContext(ctx, binary, "--no-check", "-c", configPath)
+	}
 
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {

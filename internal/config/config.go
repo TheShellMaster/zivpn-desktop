@@ -65,10 +65,11 @@ func (c Connection) Engine() EngineConfig {
 		Obfs:     valueOr(c.Obfs, "zivpn"),
 		AuthStr:  c.Password,
 		Insecure: true,
-		// Mode SOCKS5 uniquement : pas besoin de droits admin/root.
-		// Proxy disponible sur 127.0.0.1:1080 après connexion.
-		Socks5: &Socks5Config{
-			Listen: "127.0.0.1:1080",
+		// Mode TUN : tout le trafic réseau passe par le VPN (comme un vrai VPN).
+		Tun: &TunConfig{
+			Name:    "zivpn0",
+			Timeout: 300,
+			MTU:     1500,
 		},
 	}
 }

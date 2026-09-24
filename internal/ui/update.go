@@ -12,7 +12,7 @@ import (
 	"fyne.io/fyne/v2/dialog"
 )
 
-const CurrentVersion = "v1.0.1"
+const CurrentVersion = "v1.0.3"
 const RepoReleasesAPI = "https://api.github.com/repos/TheShellMaster/zivpn-desktop/releases/latest"
 const RepoReleasesURL = "https://github.com/TheShellMaster/zivpn-desktop/releases/latest"
 
