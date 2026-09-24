@@ -20,6 +20,7 @@ import (
 
 	"github.com/TheShellMaster/zivpn-desktop/internal/config"
 	"github.com/TheShellMaster/zivpn-desktop/internal/engine"
+	"github.com/TheShellMaster/zivpn-desktop/internal/proxy"
 )
 
 //go:embed icon.png
@@ -229,8 +230,10 @@ func (u *AppUI) connectLocked() {
 			u.appendLog(line + "\n")
 			if strings.Contains(line, "TUN up and running") || strings.Contains(line, "SOCKS5 server up and running") || strings.Contains(line, "Connected") {
 				u.setStatus("connected", fmt.Sprintf("🟢 Connecté à %s:%d", server, port))
+				_ = proxy.Enable(1080)
 			}
 		}, func(exitErr error) {
+			_ = proxy.Disable()
 			u.mu.Lock()
 			defer u.mu.Unlock()
 			if u.status == "connected" || u.status == "connecting" {
@@ -247,6 +250,7 @@ func (u *AppUI) connectLocked() {
 		u.mu.Lock()
 		defer u.mu.Unlock()
 		if err != nil {
+			_ = proxy.Disable()
 			u.setStatus("error", "🔴 Échec du démarrage")
 			u.appendLog(fmt.Sprintf("Erreur moteur: %v\n", err))
 			return
@@ -262,6 +266,7 @@ func (u *AppUI) disconnect() {
 }
 
 func (u *AppUI) disconnectLocked() {
+	_ = proxy.Disable()
 	if u.proc != nil {
 		_ = u.proc.Stop()
 		u.proc = nil
