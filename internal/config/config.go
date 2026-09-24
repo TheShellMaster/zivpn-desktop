@@ -15,26 +15,36 @@ import (
 type Connection struct {
 	Server   string `json:"server"`
 	Port     int    `json:"-"`
-	Password string `json:"auth_str"`
-	Obfs     string `json:"obfs"`
+	Password string `json:"password"`
 }
+
+// SalamanderPassword is the obfuscation password used by ZiVPN servers.
+// It mirrors the server-side `"obfs": "zivpn"` setting from
+// https://github.com/zahidbd2/udp-zivpn/blob/main/config.json : the ZiVPN
+// fork (v1.5.0, Hysteria v2 based) speaks the "Zivpnudp-*" framing with
+// salamander obfuscation keyed by this password.
+const SalamanderPassword = "zivpn"
 
 type EngineConfig struct {
-	Server   string        `json:"server"`
-	Up       int           `json:"up_mbps"`
-	Down     int           `json:"down_mbps"`
-	Protocol string        `json:"protocol,omitempty"`
-	Obfs     string        `json:"obfs"`
-	AuthStr  string        `json:"auth_str"`
-	Insecure bool          `json:"insecure"`
-	Tun      *TunConfig    `json:"tun,omitempty"`
-	Socks5   *Socks5Config `json:"socks5,omitempty"`
+	Server string        `json:"server"`
+	Auth   string        `json:"auth"`
+	TLS    TLSConfig     `json:"tls"`
+	Obfs   ObfsConfig    `json:"obfs"`
+	Socks5 *Socks5Config `json:"socks5,omitempty"`
 }
 
-type TunConfig struct {
-	Name    string `json:"name"`
-	Timeout int    `json:"timeout"`
-	MTU     int    `json:"mtu"`
+type TLSConfig struct {
+	SNI      string `json:"sni,omitempty"`
+	Insecure bool   `json:"insecure"`
+}
+
+type ObfsConfig struct {
+	Type       string           `json:"type"`
+	Salamander SalamanderConfig `json:"salamander"`
+}
+
+type SalamanderConfig struct {
+	Password string `json:"password"`
 }
 
 type Socks5Config struct {
@@ -59,12 +69,17 @@ func (c Connection) Validate() error {
 
 func (c Connection) Engine() EngineConfig {
 	return EngineConfig{
-		Server:   net.JoinHostPort(c.Server, strconv.Itoa(c.Port)),
-		Up:       100,
-		Down:     100,
-		Obfs:     valueOr(c.Obfs, "zivpn"),
-		AuthStr:  c.Password,
-		Insecure: true,
+		Server: net.JoinHostPort(c.Server, strconv.Itoa(c.Port)),
+		Auth:   c.Password,
+		TLS: TLSConfig{
+			Insecure: true,
+		},
+		Obfs: ObfsConfig{
+			Type: "salamander",
+			Salamander: SalamanderConfig{
+				Password: SalamanderPassword,
+			},
+		},
 		Socks5: &Socks5Config{
 			Listen: "127.0.0.1:1080",
 		},
@@ -115,11 +130,4 @@ func (c Connection) WriteEngineConfig(dir string) (string, error) {
 		return "", fmt.Errorf("écriture de la configuration: %w", err)
 	}
 	return path, nil
-}
-
-func valueOr(value, fallback string) string {
-	if strings.TrimSpace(value) != "" {
-		return value
-	}
-	return fallback
 }

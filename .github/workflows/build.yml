@@ -31,10 +31,13 @@ jobs:
         run: |
           go build -v -o zivpn-desktop ./cmd/zivpn-desktop
 
-      - name: Download Linux Engine
+      - name: Download & Patch Linux Engine (ZiVPN protocol)
         run: |
-          curl -sL https://github.com/apernet/hysteria/releases/download/v1.3.5/hysteria-linux-amd64 -o zivpn-engine
+          curl -sL https://github.com/apernet/hysteria/releases/download/app%2Fv2.2.3/hysteria-linux-amd64 -o hysteria-stock
+          chmod +x hysteria-stock
+          python3 scripts/patch-engine.py hysteria-stock zivpn-engine
           chmod +x zivpn-desktop zivpn-engine
+          rm -f hysteria-stock
 
       - name: Package Linux AppImage & Tarball
         run: |
@@ -100,13 +103,14 @@ jobs:
         run: |
           go build -v -ldflags "-H windowsgui" -o zivpn-desktop.exe ./cmd/zivpn-desktop
 
-      - name: Download Windows Engine & Wintun Driver
+      - name: Download & Patch Windows Engine (ZiVPN protocol)
         shell: bash
         run: |
-          curl -sL https://github.com/apernet/hysteria/releases/download/v1.3.5/hysteria-windows-amd64.exe -o zivpn-engine.exe
+          curl -sL "https://github.com/apernet/hysteria/releases/download/app%2Fv2.2.3/hysteria-windows-amd64.exe" -o hysteria-stock.exe
+          python scripts/patch-engine.py hysteria-stock.exe zivpn-engine.exe
           curl -sL https://www.wintun.net/builds/wintun-0.14.1.zip -o wintun.zip
           unzip -p wintun.zip wintun/bin/amd64/wintun.dll > wintun.dll
-          rm -f wintun.zip
+          rm -f wintun.zip hysteria-stock.exe
 
       - name: Install NSIS Installer Generator
         run: choco install nsis
@@ -178,10 +182,13 @@ jobs:
         run: |
           go build -v -o zivpn-desktop ./cmd/zivpn-desktop
 
-      - name: Download macOS Engine
+      - name: Download & Patch macOS Engine (ZiVPN protocol)
         run: |
-          curl -sL https://github.com/apernet/hysteria/releases/download/v1.3.5/hysteria-darwin-universal -o zivpn-engine
+          curl -sL "https://github.com/apernet/hysteria/releases/download/app%2Fv2.2.3/hysteria-darwin-universal" -o hysteria-stock
+          chmod +x hysteria-stock
+          python3 scripts/patch-engine.py hysteria-stock zivpn-engine
           chmod +x zivpn-desktop zivpn-engine
+          rm -f hysteria-stock
 
       - name: Create macOS .app Bundle and DMG
         run: |

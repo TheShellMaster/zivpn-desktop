@@ -27,17 +27,23 @@ Le script d'installation officiel (`zi.sh`) déploie les éléments suivants :
 - Un service systemd `zivpn.service`.
 
 ### 2.2. Analyse du binaire serveur
-L'inspection des symboles et des chaînes de caractères du binaire `/usr/local/bin/zivpn` a révélé :
+L'inspection des symboles et des chaînes de caractères du binaire `/usr/local/bin/zivpn` (version 1.5.0, compilé en Go 1.21, `quic-go v0.40`) a révélé :
 1. La présence massive de paquets Go provenant de l'organisation `github.com/apernet` :
-   - `github.com/apernet/hysteria/core/cs`
-   - `github.com/apernet/hysteria/app/cmd`
+   - `github.com/apernet/hysteria/core/...`
+   - `github.com/apernet/hysteria/extras/obfs` (dont `SalamanderObfuscator`)
    - `github.com/apernet/quic-go`
-2. Les messages de logs d'erreurs et les formats de handshake sont identiques à ceux de **Hysteria version 1.3.x**.
+2. Des constantes de framing QUIC **renommées** par rapport à Hysteria :
+   - `Hysteria-UDP` → **`Zivpnudp-UDP`**
+   - `Hysteria-Auth` → **`Zivpnudp-Auth`**
+   - `Hysteria-CC-RX` → **`Zivpnudp-CC-RX`**
+   - `Hysteria-Padding` → **`Zivpnudp-Padding`**
+3. Une vérification de signature codée en dur côté client : `config.Signature` doit valoir `"hu``hqb`c"`, sinon le binaire officiel s'arrête avec `FATAL wtf!!!No Idea`.
 
 ### 💡 Conclusion technique :
-**ZiVPN est un renommage (rebranding) d'Hysteria v1**, où :
-- L'algorithme d'obfuscation par défaut a été configuré avec le mot-clé statique `"zivpn"`.
-- L'authentification a été restreinte au mode mot de passe seul (`auth_str`), sans nom d'utilisateur.
+**ZiVPN 1.5.0 est un fork d'Hysteria v2 (génération v2.2.x)**, où :
+- Le framing QUIC utilise les marqueurs `Zivpnudp-*` au lieu de `Hysteria-*` : un client Hysteria standard voit ses paquets **ignorés silencieusement** par le serveur.
+- L'obfuscation est `salamander` (BLAKE2b-256, sel 8 octets), pilotée par le réglage serveur `"obfs": "zivpn"` (mot de passe `zivpn`).
+- L'authentification est le mot de passe seul (champ `auth`), sans nom d'utilisateur.
 - Le port standard par défaut est `5667/udp`.
 
 ---
@@ -56,9 +62,10 @@ Pour qu'un client puisse négocier avec succès une session avec le serveur ZiVP
 ├─────────────────────────────────────────────────────────────┤
 │                       Couche Transport                      │
 │      QUIC (Protocole UDP rapide avec multiplexage)          │
+│      Framing "Zivpnudp-*" (Auth / UDP / CC-RX / Padding)     │
 ├─────────────────────────────────────────────────────────────┤
 │                      Couche Obfuscation                     │
-│    XOR Packet Obfuscator (Clé statique : "zivpn")            │
+│    Salamander (BLAKE2b-256, mot de passe : "zivpn")          │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -67,10 +74,10 @@ Pour qu'un client puisse négocier avec succès une session avec le serveur ZiVP
 |---|---|---|
 | **Protocole de transport** | `UDP` (QUIC) | Transport à faible latence résistant à la perte de paquets. |
 | **Port par défaut** | `5667` | Port d'écoute du serveur. |
-| **Obfuscation (`obfs`)** | `"zivpn"` | Masque les en-têtes QUIC contre l'inspection DPI (Deep Packet Inspection). |
-| **Authentification (`auth_str`)** | `<mot de passe>` | Doit correspondre à une ligne valide du fichier serveur `auth.config`. |
-| **Bande passante (`up_mbps` / `down_mbps`)** | Valeur entière (ex: `100`) | Hysteria v1 exige ces valeurs pour initialiser son algorithme de contrôle de congestion brutale. |
-| **Validation TLS (`insecure`)** | `true` | Le certificat du serveur étant auto-signé, le client doit accepter le certificat sans vérification CA publique. |
+| **Framing** | `Zivpnudp-*` | Marqueurs QUIC renommés par le fork ZiVPN (voir §2.2). |
+| **Obfuscation (`obfs`)** | `salamander`, mot de passe `"zivpn"` | Masque les en-têtes QUIC contre l'inspection DPI (Deep Packet Inspection). |
+| **Authentification (`auth`)** | `<mot de passe>` | Doit correspondre à un mot de passe valide du serveur. |
+| **Validation TLS (`tls.insecure`)** | `true` | Le certificat du serveur étant auto-signé, le client doit accepter le certificat sans vérification CA publique. |
 
 ---
 
@@ -93,7 +100,7 @@ L'application est structurée selon une séparation stricte entre **l'interface 
 │                                                               │
 │   1. Charge / Sauvegarde le profil local (profile.json)       │
 │   2. Valide les entrées utilisateur                           │
-│   3. Génère dynamiquement le client.json (format Hysteria v1) │
+│   3. Génère dynamiquement le client.json (format Hysteria v2) │
 │   4. Supervise le processus du moteur réseau                  │
 │   5. Capture et diffuse les logs en temps réel                │
 └───────────────────────────────┬───────────────────────────────┘
@@ -101,7 +108,7 @@ L'application est structurée selon une séparation stricte entre **l'interface 
                                 ▼
 ┌───────────────────────────────────────────────────────────────┐
 │                 Moteur Réseau (zivpn-engine)                  │
-│                    (Binaire Hysteria v1)                      │
+│              (Hysteria v2.2.3 patché protocole ZiVPN)         │
 │                                                               │
 │   - Négocie le tunnel QUIC obfusqué vers AWS                  │
 │   - Crée l'interface TUN système (zivpn-tun / wintun.dll)     │
@@ -127,8 +134,8 @@ Lors du développement initial, deux stratégies ont été étudiées :
 
 ### Option B : L'architecture Moteur Découplé (Retenue)
 - L'interface utilisateur et la logique métier sont compilées avec le **Go moderne (1.23+)**, bénéficiant des dernières optimisations et correctifs de sécurité.
-- Le moteur réseau `zivpn-engine` utilise le binaire stable officiel v1.3.5, garanti sans bug de compatibilité cryptographique.
-- **Avantage décisif** : Si le protocole ZiVPN évolue demain (par exemple vers Hysteria v2), il suffira de remplacer le binaire du moteur sans devoir réécrire l'interface utilisateur.
+- Le moteur réseau `zivpn-engine` est le binaire officiel Hysteria **v2.2.3**, patché de façon reproductible (`scripts/patch-engine.py`) pour parler le protocole ZiVPN (framing `Zivpnudp-*`, obfs salamander).
+- **Avantage décisif** : si le protocole ZiVPN évolue demain, il suffira de remplacer le binaire du moteur sans devoir réécrire l'interface utilisateur.
 
 ---
 

@@ -228,7 +228,9 @@ func (u *AppUI) connectLocked() {
 	go func() {
 		proc, err := engine.Start(ctx, "", configPath, func(line string) {
 			u.appendLog(line + "\n")
-			if strings.Contains(line, "TUN up and running") || strings.Contains(line, "SOCKS5 server up and running") || strings.Contains(line, "Connected") {
+			// Messages réels du moteur ZiVPN (Hysteria v2 patché) :
+			// "connected to server" puis "SOCKS5 server listening".
+			if strings.Contains(line, "connected to server") || strings.Contains(line, "SOCKS5 server listening") {
 				u.setStatus("connected", fmt.Sprintf("🟢 Connecté à %s:%d", server, port))
 				_ = proxy.Enable(1080)
 			}

@@ -10,8 +10,17 @@ import (
 func TestConnectionEngineUsesPasswordOnly(t *testing.T) {
 	connection := Connection{Server: "198.51.100.20", Port: 5667, Password: "admin"}
 	engine := connection.Engine()
-	if engine.Server != "198.51.100.20:5667" || engine.AuthStr != "admin" || engine.Obfs != "zivpn" {
+	if engine.Server != "198.51.100.20:5667" || engine.Auth != "admin" {
 		t.Fatalf("configuration ZiVPN inattendue: %+v", engine)
+	}
+	if engine.Obfs.Type != "salamander" || engine.Obfs.Salamander.Password != SalamanderPassword {
+		t.Fatalf("obfuscation ZiVPN inattendue: %+v", engine.Obfs)
+	}
+	if !engine.TLS.Insecure {
+		t.Fatalf("TLS insecure attendu pour le certificat auto-signé: %+v", engine.TLS)
+	}
+	if engine.Socks5 == nil || engine.Socks5.Listen != "127.0.0.1:1080" {
+		t.Fatalf("proxy SOCKS5 local attendu: %+v", engine.Socks5)
 	}
 	encoded, err := json.Marshal(engine)
 	if err != nil {

@@ -120,7 +120,8 @@ go mod download
 go build -o zivpn-desktop ./cmd/zivpn-desktop
 
 # 4. Placer le moteur réseau zivpn-engine à côté
-# (Téléchargeable depuis les releases Hysteria v1.3.5)
+# (Hysteria v2.2.3 patché via `python3 scripts/patch-engine.py hysteria-stock zivpn-engine`)
+# Téléchargeable depuis https://github.com/apernet/hysteria/releases/tag/app%2Fv2.2.3
 ```
 
 ---

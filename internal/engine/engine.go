@@ -60,6 +60,9 @@ func Start(ctx context.Context, binary, configPath string, onLog func(string), o
 
 	ctx, cancel := context.WithCancel(ctx)
 
+	// Le moteur est un binaire Hysteria v2 patché pour le protocole ZiVPN
+	// (framing "Zivpnudp-*", obfs salamander). Il exige le sous-commande
+	// "client" et le drapeau "--disable-update-check".
 	// Élévation des privilèges par OS — affiche un dialogue graphique natif :
 	// • Linux  → pkexec (PolicyKit) : fenêtre "Authentification requise"
 	// • macOS  → osascript          : fenêtre "Entrez votre mot de passe"
@@ -71,12 +74,12 @@ func Start(ctx context.Context, binary, configPath string, onLog func(string), o
 	switch {
 	case runtime.GOOS == "darwin" && os.Geteuid() != 0:
 		script := fmt.Sprintf(
-			`do shell script "%s --no-check -c %s" with administrator privileges`,
+			`do shell script "%s client -c %s --disable-update-check" with administrator privileges`,
 			binary, configPath,
 		)
 		cmd = exec.CommandContext(ctx, "osascript", "-e", script)
 	default:
-		cmd = exec.CommandContext(ctx, binary, "--no-check", "-c", configPath)
+		cmd = exec.CommandContext(ctx, binary, "client", "-c", configPath, "--disable-update-check")
 	}
 
 	stdout, err := cmd.StdoutPipe()
