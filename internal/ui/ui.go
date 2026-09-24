@@ -36,6 +36,7 @@ type AppUI struct {
 	entryPassword *widget.Entry
 
 	lblStatus  *widget.Label
+	lblIP      *widget.Label
 	btnAction  *widget.Button
 	logView    *widget.Entry
 	logScroll  *container.Scroll
@@ -118,6 +119,9 @@ func (u *AppUI) build() {
 	// Statut
 	u.lblStatus = widget.NewLabelWithStyle("⚪ Déconnecté", fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
 
+	// IP publique de sortie (remplie après vérification via le tunnel)
+	u.lblIP = widget.NewLabelWithStyle("", fyne.TextAlignCenter, fyne.TextStyle{Italic: true})
+
 	// Bouton de connexion
 	u.btnAction = widget.NewButtonWithIcon("CONNECTER", theme.MediaPlayIcon(), func() {
 		u.toggleConnection()
@@ -149,6 +153,7 @@ func (u *AppUI) build() {
 		form,
 		widget.NewSeparator(),
 		u.lblStatus,
+		u.lblIP,
 		u.btnAction,
 		widget.NewSeparator(),
 		logsAccordion,
@@ -233,6 +238,7 @@ func (u *AppUI) connectLocked() {
 			if strings.Contains(line, "connected to server") || strings.Contains(line, "SOCKS5 server listening") {
 				u.setStatus("connected", fmt.Sprintf("🟢 Connecté à %s:%d", server, port))
 				_ = proxy.Enable(1080)
+				go u.verifyExitIP()
 			}
 		}, func(exitErr error) {
 			_ = proxy.Disable()
@@ -274,7 +280,24 @@ func (u *AppUI) disconnectLocked() {
 		u.proc = nil
 	}
 	u.setStatus("disconnected", "⚪ Déconnecté")
+	u.lblIP.SetText("")
 	u.appendLog("Déconnexion effectuée.\n")
+}
+
+// verifyExitIP prouve que le trafic passe par le tunnel : elle récupère
+// l'IP publique EN PASSANT par le SOCKS5 local et l'affiche.
+// Si l'IP affichée = celle du serveur, le VPN fonctionne même si le
+// navigateur de l'utilisateur ignore le proxy système.
+func (u *AppUI) verifyExitIP() {
+	u.lblIP.SetText("🔍 Vérification du tunnel…")
+	ip, err := publicIPViaSocks5("127.0.0.1:1080")
+	if err != nil {
+		u.lblIP.SetText("⚠️ Tunnel injoignable : aucun trafic ne passe")
+		u.appendLog(fmt.Sprintf("Vérification tunnel échouée: %v\n", err))
+		return
+	}
+	u.lblIP.SetText(fmt.Sprintf("🌍 IP publique : %s", ip))
+	u.appendLog(fmt.Sprintf("Tunnel vérifié, sortie par %s\n", ip))
 }
 
 func (u *AppUI) setStatus(state, label string) {
