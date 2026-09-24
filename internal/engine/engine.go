@@ -60,10 +60,13 @@ func Start(ctx context.Context, binary, configPath string, onLog func(string), o
 
 	ctx, cancel := context.WithCancel(ctx)
 
-	// Sur Linux, le mode TUN requiert CAP_NET_ADMIN.
-	// pkexec affiche une boîte de dialogue graphique native (comme VirtualBox, Wireshark).
+	// Élévation des privilèges par OS — affiche un dialogue graphique natif :
+	// • Linux  → pkexec (PolicyKit) : fenêtre "Authentification requise"
+	// • macOS  → osascript          : fenêtre "Entrez votre mot de passe"
+	// • Windows → manifest UAC      : fenêtre "Voulez-vous autoriser…" (au lancement)
 	var cmd *exec.Cmd
-	if runtime.GOOS == "linux" && os.Geteuid() != 0 {
+	switch {
+	case runtime.GOOS == "linux" && os.Geteuid() != 0:
 		if pkexec, err := exec.LookPath("pkexec"); err == nil {
 			cmd = exec.CommandContext(ctx, pkexec, binary, "--no-check", "-c", configPath)
 		} else if sudoPath, err := exec.LookPath("sudo"); err == nil {
@@ -71,7 +74,14 @@ func Start(ctx context.Context, binary, configPath string, onLog func(string), o
 		} else {
 			cmd = exec.CommandContext(ctx, binary, "--no-check", "-c", configPath)
 		}
-	} else {
+	case runtime.GOOS == "darwin" && os.Geteuid() != 0:
+		// osascript demande le mot de passe via une fenêtre macOS native.
+		script := fmt.Sprintf(
+			`do shell script "%s --no-check -c %s" with administrator privileges`,
+			binary, configPath,
+		)
+		cmd = exec.CommandContext(ctx, "osascript", "-e", script)
+	default:
 		cmd = exec.CommandContext(ctx, binary, "--no-check", "-c", configPath)
 	}
 

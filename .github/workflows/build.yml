@@ -91,7 +91,12 @@ jobs:
         with:
           go-version: '1.23'
 
-      - name: Build Windows Binary (No Console Window)
+      - name: Embed Windows UAC Manifest (dialogue natif au lancement)
+        run: |
+          go install github.com/akavel/rsrc@latest
+          rsrc -manifest cmd/zivpn-desktop/zivpn-desktop.manifest -o cmd/zivpn-desktop/zivpn-desktop.syso
+
+      - name: Build Windows Binary (No Console, UAC Admin)
         run: |
           go build -v -ldflags "-H windowsgui" -o zivpn-desktop.exe ./cmd/zivpn-desktop
 
