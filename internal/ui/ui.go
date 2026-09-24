@@ -221,9 +221,9 @@ func (u *AppUI) connectLocked() {
 	u.logView.SetText("")
 	u.appendLog(fmt.Sprintf("Initialisation du tunnel vers %s:%d...\n", server, port))
 
-	// Lance le moteur dans un goroutine pour ne pas bloquer l'interface
-	// (pkexec/osascript peuvent prendre quelques secondes le temps que l'utilisateur
-	//  entre son mot de passe — l'UI reste fluide pendant ce temps).
+	// Lance le moteur dans un goroutine pour ne pas bloquer l'interface.
+	// (Le moteur ouvre un simple proxy SOCKS5 local : aucun droit admin
+	//  requis, l'UI reste fluide pendant la connexion).
 	ctx := context.Background()
 	go func() {
 		proc, err := engine.Start(ctx, "", configPath, func(line string) {

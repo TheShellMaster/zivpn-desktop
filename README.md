@@ -60,11 +60,11 @@ Rendez-vous sur la page des [Releases](https://github.com/TheShellMaster/zivpn-d
    ```bash
    chmod +x zivpn-desktop zivpn-engine
    ```
-3. Lancez l'application :
+3. Lancez l'application (aucun droit admin requis) :
    ```bash
-   sudo ./zivpn-desktop
+   ./zivpn-desktop
    ```
-   *(Note : `sudo` est nécessaire sous Linux pour permettre au système de créer l'interface réseau virtuelle `zivpn-tun`).*
+   *(Aucun `sudo` nécessaire : l'application ouvre un proxy SOCKS5 local sur `127.0.0.1:1080` et redirige automatiquement le proxy système, sans créer d'interface réseau virtuelle).*
 
 ### 🪟 Sur Windows
 
@@ -79,7 +79,7 @@ Rendez-vous sur la page des [Releases](https://github.com/TheShellMaster/zivpn-d
 Si vous souhaitez exécuter le client sans ouvrir l'interface graphique (ex: script d'automatisation, terminal pur) :
 
 ```bash
-sudo ./zivpn-desktop -server 198.51.100.1 -port 5667 -password "votre_mot_de_passe"
+./zivpn-desktop -server 198.51.100.1 -port 5667 -password "votre_mot_de_passe"
 ```
 
 Arguments disponibles :
