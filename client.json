@@ -1,0 +1,18 @@
+{
+  "server": "1.1.1.1:5667",
+  "auth": "test",
+  "tls": {
+    "insecure": true
+  },
+  "obfs": {
+    "type": "salamander",
+    "salamander": {
+      "password": "hu``hqb`c"
+    }
+  },
+  "tun": {
+    "type": "",
+    "name": "zivpn0",
+    "mtu": 1500
+  }
+}

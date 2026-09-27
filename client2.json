@@ -1,0 +1,10 @@
+{
+  "server": "1.2.3.4:5667",
+  "auth": "password123",
+  "tls": { "insecure": true },
+  "interface": {
+    "type": "tun",
+    "name": "zivpn0",
+    "mtu": 1500
+  }
+}
