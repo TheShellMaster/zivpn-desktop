@@ -74,12 +74,14 @@ func Start(ctx context.Context, binary, configPath string, onLog func(string), o
 	switch {
 	case runtime.GOOS == "darwin" && os.Geteuid() != 0:
 		script := fmt.Sprintf(
-			`do shell script "%s client -c %s --disable-update-check" with administrator privileges`,
+			`do shell script "%s client -c %s" with administrator privileges`,
 			binary, configPath,
 		)
 		cmd = exec.CommandContext(ctx, "osascript", "-e", script)
+	case runtime.GOOS == "linux" && os.Geteuid() != 0:
+		cmd = exec.CommandContext(ctx, "pkexec", binary, "client", "-c", configPath)
 	default:
-		cmd = exec.CommandContext(ctx, binary, "client", "-c", configPath, "--disable-update-check")
+		cmd = exec.CommandContext(ctx, binary, "client", "-c", configPath)
 	}
 
 	stdout, err := cmd.StdoutPipe()

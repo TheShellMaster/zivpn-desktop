@@ -1,0 +1,9 @@
+dist/
+release/
+*.log
+*.zip
+hysteria-v1
+test-custom.yaml
+test-v2.12.3.yaml
+wintun/
+a.out

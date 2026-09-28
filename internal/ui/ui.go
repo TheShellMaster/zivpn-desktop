@@ -20,7 +20,6 @@ import (
 
 	"github.com/TheShellMaster/zivpn-desktop/internal/config"
 	"github.com/TheShellMaster/zivpn-desktop/internal/engine"
-	"github.com/TheShellMaster/zivpn-desktop/internal/proxy"
 )
 
 //go:embed icon.png

@@ -36,26 +36,27 @@ type EngineConfig struct {
 }
 
 type TunConfig struct {
-	Name string `json:"name,omitempty"`
-	MTU  int    `json:"mtu,omitempty"`
+	Name      string `json:"name,omitempty" yaml:"name,omitempty"`
+	MTU       int    `json:"mtu,omitempty" yaml:"mtu,omitempty"`
+	AutoRoute bool   `json:"auto_route,omitempty" yaml:"auto_route,omitempty"`
 }
 
 type TLSConfig struct {
-	SNI      string `json:"sni,omitempty"`
-	Insecure bool   `json:"insecure"`
+	SNI      string `json:"sni,omitempty" yaml:"sni,omitempty"`
+	Insecure bool   `json:"insecure" yaml:"insecure"`
 }
 
 type ObfsConfig struct {
-	Type       string           `json:"type"`
-	Salamander SalamanderConfig `json:"salamander"`
+	Type       string           `json:"type" yaml:"type"`
+	Salamander SalamanderConfig `json:"salamander" yaml:"salamander"`
 }
 
 type SalamanderConfig struct {
-	Password string `json:"password"`
+	Password string `json:"password" yaml:"password"`
 }
 
 type Socks5Config struct {
-	Listen string `json:"listen"`
+	Listen string `json:"listen" yaml:"listen"`
 }
 
 func (c Connection) Validate() error {
@@ -79,17 +80,19 @@ func (c Connection) Engine() EngineConfig {
 		Server: net.JoinHostPort(c.Server, strconv.Itoa(c.Port)),
 		Auth:   c.Password,
 		TLS: TLSConfig{
+			SNI:      "zivpn",
 			Insecure: true,
 		},
 		Obfs: ObfsConfig{
 			Type: "salamander",
 			Salamander: SalamanderConfig{
-				Password: SalamanderPassword,
+				Password: "zivpn",
 			},
 		},
 		Tun: &TunConfig{
-			Name: "zivpn0",
-			MTU:  1500,
+			Name:      "zivpn0",
+			MTU:       1500,
+			AutoRoute: true,
 		},
 	}
 }
@@ -129,12 +132,25 @@ func (c Connection) WriteEngineConfig(dir string) (string, error) {
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return "", fmt.Errorf("création du dossier de configuration: %w", err)
 	}
-	path := filepath.Join(dir, "client.json")
-	payload, err := json.MarshalIndent(c.Engine(), "", "  ")
-	if err != nil {
-		return "", fmt.Errorf("encodage de la configuration: %w", err)
-	}
-	if err := os.WriteFile(path, append(payload, '\n'), 0o600); err != nil {
+	path := filepath.Join(dir, "client.yaml")
+	
+	// Create YAML string manually to avoid adding a yaml dependency
+	yamlConfig := fmt.Sprintf(`server: %s
+auth: %s
+tls:
+  sni: %s
+  insecure: true
+obfs:
+  type: salamander
+  salamander:
+    password: %s
+tun:
+  name: zivpn0
+  auto_route: true
+  mtu: 1500
+`, net.JoinHostPort(c.Server, strconv.Itoa(c.Port)), c.Password, "zivpn", SalamanderPassword)
+
+	if err := os.WriteFile(path, []byte(yamlConfig), 0o600); err != nil {
 		return "", fmt.Errorf("écriture de la configuration: %w", err)
 	}
 	return path, nil
